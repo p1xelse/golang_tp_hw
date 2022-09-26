@@ -9,7 +9,7 @@ func skip(str string, opts Options) string {
 	fields := strings.Split(str, " ")
 
 	if len(fields) < opts.f {
-		return "" // mb \n
+		return ""
 	}
 
 	str = strings.Join(fields[opts.f:], " ")
@@ -21,19 +21,19 @@ func skip(str string, opts Options) string {
 	return str[opts.s:]
 }
 
-func addStrInResult(result *[]string, curStr string, count int, opts Options) {
+func addStrInResult(result []string, curStr string, count int, opts Options) []string {
 	switch {
 	case opts.c:
-		*result = append(*result, strconv.Itoa(count)+" "+curStr)
+		result = append(result, strconv.Itoa(count)+" "+curStr)
 	case opts.d && count > 1:
-		*result = append(*result, curStr)
+		result = append(result, curStr)
 	case opts.u && count == 1:
-		*result = append(*result, curStr)
+		result = append(result, curStr)
 	case !opts.d && !opts.u:
-		*result = append(*result, curStr)
-	default:
-		return
+		result = append(result, curStr)
 	}
+
+	return result
 }
 
 func Uniq(lines []string, opts Options) []string {
@@ -58,12 +58,12 @@ func Uniq(lines []string, opts Options) []string {
 			continue
 		}
 
-		addStrInResult(&result, lines[idx-count], count, opts)
+		result = addStrInResult(result, lines[idx-count], count, opts)
 		prevLine = curLine
 		count = 1
 	}
 
-	addStrInResult(&result, lines[len(lines)-count], count, opts)
+	result = addStrInResult(result, lines[len(lines)-count], count, opts)
 
 	return result
 }
