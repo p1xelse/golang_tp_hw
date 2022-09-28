@@ -18,16 +18,16 @@ const (
 	divide       byte = '/'
 )
 
-func getPriority(char byte) int {
-	priorityMap := map[byte]int{
-		'(': 0,
-		')': 0,
-		'+': 1,
-		'-': 1,
-		'/': 2,
-		'*': 2,
-	}
+var priorityMap = map[byte]int{
+	'(': 0,
+	')': 0,
+	'+': 1,
+	'-': 1,
+	'/': 2,
+	'*': 2,
+}
 
+func getPriority(char byte) int {
 	return priorityMap[char]
 }
 
@@ -40,23 +40,26 @@ func isOperator(char byte) bool {
 		char == divide
 }
 
-func readOperand(reader *strings.Reader) (f float64, err error) {
+func readOperand(reader *strings.Reader) (float64, error) {
+	var f float64
 	offset := reader.Size() - int64(reader.Len())
-	_, err = fmt.Fscan(reader, &f)
+	_, err := fmt.Fscan(reader, &f)
 
 	if err != nil {
 		reader.Seek(offset, io.SeekStart)
 	}
 
-	return
+	return f, err
 }
 
 func skipSpaces(reader *strings.Reader) error {
 	for {
 		b, err := reader.ReadByte()
 
-		if err != nil {
+		if err != nil && err == io.EOF {
 			return err
+		} else if err != nil {
+			return fmt.Errorf("failed to ReadByte: %v", err)
 		}
 
 		if !unicode.IsSpace(rune(b)) {
@@ -66,26 +69,39 @@ func skipSpaces(reader *strings.Reader) error {
 	}
 }
 
-func readOperator(reader *strings.Reader) (char byte, err error) {
-	err = skipSpaces(reader)
+func wrapIfNotEof(format string, err error) error {
+	wrapErr := err
+
+	if err != io.EOF {
+		wrapErr = fmt.Errorf(format, wrapErr)
+	}
+
+	return wrapErr
+}
+
+func readOperator(reader *strings.Reader) (byte, error) {
+	var char byte
+	err := skipSpaces(reader)
+
 	if err != nil {
-		return
+		return char, wrapIfNotEof("failed to skipSpaces: %v", err)
 	}
 
 	char, err = reader.ReadByte()
 
 	if err != nil {
-		return
+		return char, wrapIfNotEof("failed to ReadByte: %v", err)
 	}
 
 	if !isOperator(char) {
 		err = errors.New("invalid expression: operator expected")
 	}
 
-	return
+	return char, err
 }
 
-func infixToPostfix(infixExpr string) (postfixExpr string, err error) {
+func infixToPostfix(infixExpr string) (string, error) {
+	var postfixExpr string
 	reader := strings.NewReader(infixExpr)
 	var operators Stack
 
@@ -106,7 +122,7 @@ func infixToPostfix(infixExpr string) (postfixExpr string, err error) {
 			if err == io.EOF {
 				break
 			}
-			return "", err
+			return "", fmt.Errorf("failed to readOperator: %v", err)
 		}
 
 		checkOperand = true
@@ -148,7 +164,7 @@ func infixToPostfix(infixExpr string) (postfixExpr string, err error) {
 
 	postfixExpr = strings.TrimSpace(postfixExpr)
 
-	return
+	return postfixExpr, nil
 }
 
 func apply(operands *Stack, operator byte) error {
@@ -162,7 +178,7 @@ func apply(operands *Stack, operator byte) error {
 	a := operands.Pop().(float64)
 	c, err := execute(a, b, operator)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to execute: %v", err)
 	}
 	operands.Push(c)
 	return nil
@@ -185,11 +201,11 @@ func execute(a float64, b float64, operator byte) (float64, error) {
 	return 0, errors.New("invalid operand") // never
 }
 
-func Calc(str string) (result float64, err error) {
+func Calc(str string) (float64, error) {
 	postfixExpr, err := infixToPostfix(str)
 
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to infixToPostfix: %v", err)
 	}
 
 	reader := strings.NewReader(postfixExpr)
@@ -210,17 +226,17 @@ func Calc(str string) (result float64, err error) {
 		err = apply(&operands, operator)
 
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("failed to apply: %v", err)
 		}
 	}
 
 	if operands.isEmpty() {
 		return 0, errors.New("empty expression")
 	}
-	result = operands.Pop().(float64)
+	result := operands.Pop().(float64)
 
 	if !operands.isEmpty() {
 		return 0, errors.New("invalid expression")
 	}
-	return
+	return result, nil
 }

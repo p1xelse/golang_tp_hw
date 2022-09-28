@@ -12,7 +12,7 @@ func TestCalc(t *testing.T) {
 		needErr bool
 	}{
 		"Simple_test": {
-			input:   "1 + 2 + 3 + 3 - 3",
+			input:   "1 + 2 + 3 + 3 - 3 ",
 			result:  6,
 			needErr: false,
 		},
